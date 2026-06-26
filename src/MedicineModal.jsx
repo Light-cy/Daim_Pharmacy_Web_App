@@ -70,11 +70,27 @@ const MedicineModal = React.memo(({ medicine, onClose }) => {
     try {
       let finalImageUri = formData.imageUri;
 
-      // Handle Firebase Storage Upload if option B is selected
+      // Handle ImgBB Upload if option B is selected
       if (formData.imageType === 'upload' && file) {
-        const fileRef = ref(storage, `medicines/${Date.now()}_${file.name}`);
-        const snapshot = await uploadBytes(fileRef, file);
-        finalImageUri = await getDownloadURL(snapshot.ref);
+        const imgData = new FormData();
+        imgData.append('image', file);
+        
+        const apiKey = import.meta.env.VITE_IMGBB_API_KEY; // Using env variable for the key
+        if (!apiKey) {
+          throw new Error("VITE_IMGBB_API_KEY is not set in .env file.");
+        }
+
+        const res = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+          method: 'POST',
+          body: imgData,
+        });
+
+        const jsonRes = await res.json();
+        if (jsonRes.success) {
+          finalImageUri = jsonRes.data.url;
+        } else {
+          throw new Error(jsonRes.error?.message || "Failed to upload to ImgBB");
+        }
       }
 
       // Generate integer ID for mobile compatibility if adding new

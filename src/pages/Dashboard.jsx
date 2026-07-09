@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { collection, onSnapshot } from 'firebase/firestore';
-import { db } from './firebase';
-import DataTable from './DataTable';
+import { db } from '../services/firebase';
+import DataTable from '../components/common/DataTable';
+import { useAuth } from '../context/AuthContext';
 
-const OrderModal = lazy(() => import('./OrderModal'));
-const UserModal = lazy(() => import('./UserModal'));
-const CategoryModal = lazy(() => import('./CategoryModal'));
-const MedicineModal = lazy(() => import('./MedicineModal'));
+const OrderModal = lazy(() => import('../components/modals/OrderModal'));
+const UserModal = lazy(() => import('../components/modals/UserModal'));
+const CategoryModal = lazy(() => import('../components/modals/CategoryModal'));
+const MedicineModal = lazy(() => import('../components/modals/MedicineModal'));
+const ExpiryTracker = lazy(() => import('../components/common/ExpiryTracker'));
 
-function Dashboard({ onLogout }) {
+function Dashboard() {
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get('tab');
@@ -27,13 +29,13 @@ function Dashboard({ onLogout }) {
     localStorage.setItem('adminActiveTab', activeTab);
   }, [activeTab]);
   
+  const { logout } = useAuth();
   // Unified modal state
   const [modalType, setModalType] = useState(null); // 'user', 'category', 'medicine'
   const [editingItem, setEditingItem] = useState(null);
 
   const handleLogout = () => {
-    localStorage.removeItem('adminSession');
-    onLogout();
+    logout();
   };
 
   useEffect(() => {
@@ -135,7 +137,8 @@ function Dashboard({ onLogout }) {
             },
             { key: 'category', label: 'Category' },
             { key: 'price', label: 'Price (Rs)', render: (row) => `Rs ${row.price}` },
-            { key: 'stock', label: 'Stock', render: (row) => <span style={{ color: row.stock > 10 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{row.stock}</span> }
+            { key: 'stock', label: 'Stock', render: (row) => <span style={{ color: row.stock > 10 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>{row.stock}</span> },
+            { key: 'expiryDate', label: 'Expiry Date', render: (row) => row.expiryDate ? new Date(row.expiryDate).toLocaleDateString() : <span style={{color: '#94a3b8'}}>N/A</span> }
           ]} 
           onAdd={() => { setEditingItem(null); setModalType('medicine'); }}
           onEdit={(row) => { setEditingItem(row); setModalType('medicine'); }}
@@ -177,6 +180,12 @@ function Dashboard({ onLogout }) {
               <OrderModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
             </Suspense>
           </>
+        );
+      case 'expiry':
+        return (
+          <Suspense fallback={<div className="shimmer" style={{ height: '400px', borderRadius: '8px' }}></div>}>
+            <ExpiryTracker onEdit={(row) => { setEditingItem(row); setModalType('medicine'); }} />
+          </Suspense>
         );
       case 'overview':
       default:
@@ -314,6 +323,7 @@ function Dashboard({ onLogout }) {
           <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab('users'); }} className={`nav-item ${activeTab === 'users' ? 'active' : ''}`}>Manage Users</a>
           <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab('categories'); }} className={`nav-item ${activeTab === 'categories' ? 'active' : ''}`}>Categories</a>
           <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab('medicines'); }} className={`nav-item ${activeTab === 'medicines' ? 'active' : ''}`}>Products & Inventory</a>
+          <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab('expiry'); }} className={`nav-item ${activeTab === 'expiry' ? 'active' : ''}`}>📅 Expiry Tracker</a>
           <a href="#" onClick={(e) => { e.preventDefault(); setActiveTab('orders'); }} className={`nav-item ${activeTab === 'orders' ? 'active' : ''}`}>Orders</a>
           
           <div style={{ marginTop: 'auto' }}>

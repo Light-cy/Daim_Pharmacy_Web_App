@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useRegisterSW } from 'virtual:pwa-register/react';
-import Login from './Login';
-import Dashboard from './Dashboard';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
 import './index.css';
+import { useAuth } from './context/AuthContext';
 
 function App() {
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const { isAdmin, isLoading } = useAuth();
 
   // PWA Update Logic
   const {
@@ -44,15 +44,6 @@ function App() {
     }
   };
 
-  useEffect(() => {
-    // Check if admin session exists in localStorage
-    const adminSession = localStorage.getItem('adminSession');
-    if (adminSession) {
-      setIsAdmin(true);
-    }
-    setIsLoading(false);
-  }, []);
-
   if (isLoading) {
     return <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center' }}>Loading...</div>;
   }
@@ -63,11 +54,11 @@ function App() {
         <Routes>
           <Route 
             path="/login" 
-            element={!isAdmin ? <Login onLogin={() => setIsAdmin(true)} /> : <Navigate to="/" />} 
+            element={!isAdmin ? <Login /> : <Navigate to="/" />} 
           />
           <Route 
             path="/" 
-            element={isAdmin ? <Dashboard onLogout={() => setIsAdmin(false)} /> : <Navigate to="/login" />} 
+            element={isAdmin ? <Dashboard /> : <Navigate to="/login" />} 
           />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>

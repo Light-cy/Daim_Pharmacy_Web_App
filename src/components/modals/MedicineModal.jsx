@@ -1,0 +1,216 @@
+import React, { useState, useEffect } from 'react';
+import { saveDocument, getCollection } from '../../services/dbService';
+import { uploadImageToImgBB } from '../../services/uploadService';
+import ModalWrapper from '../common/ModalWrapper';
+
+const MedicineModal = React.memo(({ medicine, onClose }) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    formula: '',
+    category: '',
+    price: '',
+    stock: '',
+    expiryDate: '',
+    imageType: 'url', // 'url' or 'upload'
+    imageUri: ''
+  });
+  
+  const [categories, setCategories] = useState([]);
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const cats = await getCollection('categories');
+        setCategories(cats);
+        if (cats.length > 0 && !medicine) {
+          setFormData(prev => ({ ...prev, category: cats[0].name }));
+        }
+      } catch (e) {
+        console.error("Failed to load categories", e);
+      }
+    };
+    fetchCategories();
+
+    if (medicine) {
+      setFormData({
+        name: medicine.name || '',
+        formula: medicine.formula || '',
+        category: medicine.category || '',
+        price: medicine.price || '',
+        stock: medicine.stock || '',
+        expiryDate: medicine.expiryDate || '',
+        imageType: 'url',
+        imageUri: medicine.imageUri || medicine.imageUrl || ''
+      });
+      setPreview(medicine.imageUri || medicine.imageUrl || null);
+    }
+  }, [medicine]);
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const selectedFile = e.target.files[0];
+      setFile(selectedFile);
+      setPreview(URL.createObjectURL(selectedFile));
+    }
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      let finalImageUri = formData.imageUri;
+
+      if (formData.imageType === 'upload' && file) {
+        finalImageUri = await uploadImageToImgBB(file);
+      }
+
+      const medId = medicine?.id || Math.floor(Date.now() / 1000) % 2147483647;
+
+      const medData = {
+        id: medId,
+        name: formData.name,
+        formula: formData.formula,
+        category: formData.category,
+        price: parseFloat(formData.price) || 0,
+        stock: parseInt(formData.stock) || 0,
+        expiryDate: formData.expiryDate,
+        imageUri: finalImageUri,
+        imageUrl: finalImageUri,
+        isAvailable: medicine?.isAvailable ?? true
+      };
+
+      await saveDocument('medicines', medId, medData);
+      onClose();
+    } catch (err) {
+      console.error("Error saving medicine:", err);
+      alert("Failed to save medicine. Check console or Storage Rules.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <ModalWrapper title={medicine ? 'Edit Medicine' : 'Add New Medicine'} onClose={onClose} maxWidth="800px">
+      <form onSubmit={handleSave}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="input-group">
+            <label>Medicine Name</label>
+            <input name="name" value={formData.name} onChange={handleChange} className="input-field" required />
+          </div>
+          <div className="input-group">
+            <label>Formula</label>
+            <input name="formula" value={formData.formula} onChange={handleChange} className="input-field" required />
+          </div>
+        </div>
+
+        <div className="input-group" style={{ marginTop: '16px' }}>
+          <label>Select Category</label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
+            {categories.map(cat => (
+              <div 
+                key={cat.id} 
+                onClick={() => setFormData({...formData, category: cat.name})}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '999px',
+                  cursor: 'pointer',
+                  fontSize: '0.85rem',
+                  fontWeight: '500',
+                  background: formData.category === cat.name ? 'var(--primary-color)' : '#f1f5f9',
+                  color: formData.category === cat.name ? '#fff' : '#475569',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {cat.name}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginTop: '16px' }}>
+          <div className="input-group">
+            <label>Price (Rs.)</label>
+            <input type="number" step="0.01" name="price" value={formData.price} onChange={handleChange} className="input-field" required />
+          </div>
+          <div className="input-group">
+            <label>Stock Quantity</label>
+            <input type="number" name="stock" value={formData.stock} onChange={handleChange} className="input-field" required />
+          </div>
+          <div className="input-group">
+            <label>Expiry Date</label>
+            <input type="date" name="expiryDate" value={formData.expiryDate} onChange={handleChange} className="input-field" required />
+          </div>
+        </div>
+
+        <div className="input-group" style={{ marginTop: '16px' }}>
+          <label>Medicine Image</label>
+          <div style={{ display: 'flex', gap: '16px', marginBottom: '8px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontWeight: 'normal' }}>
+              <input type="radio" name="imageType" value="url" checked={formData.imageType === 'url'} onChange={handleChange} />
+              Web URL
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontWeight: 'normal' }}>
+              <input type="radio" name="imageType" value="upload" checked={formData.imageType === 'upload'} onChange={handleChange} />
+              Upload File
+            </label>
+          </div>
+
+          {formData.imageType === 'url' ? (
+            <input 
+              type="url" 
+              name="imageUri" 
+              value={formData.imageUri} 
+              onChange={(e) => {
+                handleChange(e);
+                setPreview(e.target.value);
+              }} 
+              className="input-field" 
+              placeholder="https://example.com/image.jpg" 
+            />
+          ) : (
+            <input 
+              type="file" 
+              accept="image/*" 
+              onChange={handleFileChange} 
+              className="input-field" 
+              style={{ padding: '8px' }}
+              required={!medicine && !preview}
+            />
+          )}
+        </div>
+
+        {preview && (
+          <div style={{ marginTop: '12px', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px', width: 'fit-content' }}>
+            <p style={{ margin: '0 0 8px 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Image Preview:</p>
+            <img 
+              src={preview} 
+              alt="Preview" 
+              style={{ maxWidth: '120px', maxHeight: '120px', borderRadius: '4px', objectFit: 'cover' }} 
+              onError={(e) => { 
+                e.target.onerror = null; 
+                e.target.src = "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Crect width='80' height='80' fill='%23e2e8f0'/%3E%3Ctext x='50%25' y='50%25' font-size='30' text-anchor='middle' dy='.3em'%3E💊%3C/text%3E%3C/svg%3E"; 
+              }} 
+            />
+          </div>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '32px' }}>
+          <button type="button" onClick={onClose} className="btn" style={{ background: '#f1f5f9' }}>Cancel</button>
+          <button type="submit" className="btn btn-primary" disabled={loading}>
+            {loading ? 'Saving...' : 'Save Medicine'}
+          </button>
+        </div>
+      </form>
+    </ModalWrapper>
+  );
+});
+
+export default MedicineModal;

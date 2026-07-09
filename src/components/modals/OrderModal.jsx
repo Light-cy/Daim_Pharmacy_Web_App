@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from './firebase';
+import { updateDocument } from '../../services/dbService';
+import ModalWrapper from '../common/ModalWrapper';
 
 const OrderModal = React.memo(({ order, onClose }) => {
   const printRef = useRef(null);
@@ -48,10 +48,8 @@ const OrderModal = React.memo(({ order, onClose }) => {
   const handleMarkComplete = async () => {
     setIsUpdating(true);
     try {
-      // Use _docId if available, fallback to id.toString()
       const docId = order._docId || order.id.toString();
-      const orderRef = doc(db, 'orders', docId);
-      await updateDoc(orderRef, { status: 'completed' });
+      await updateDocument('orders', docId, { status: 'completed' });
       onClose();
     } catch (err) {
       console.error("Failed to update order status", err);
@@ -75,15 +73,8 @@ const OrderModal = React.memo(({ order, onClose }) => {
   };
 
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '24px' }}>
-      <div className="card" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', background: '#fff', position: 'relative' }}>
-        
-        {/* Modal Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px', marginBottom: '16px' }}>
-          <h2 style={{ margin: 0, fontSize: '1.5rem', color: 'var(--text-main)' }}>Order Details</h2>
-          <button onClick={onClose} disabled={isUpdating} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-muted)' }}>&times;</button>
-        </div>
-
+    <ModalWrapper title="Order Details" onClose={onClose} maxWidth="600px">
+      <div style={{ position: 'relative' }}>
         {/* Printable Section */}
         <div ref={printRef} style={{ padding: '24px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff', color: '#000' }}>
           <div style={{ textAlign: 'center', marginBottom: '24px', borderBottom: '2px dashed #cbd5e1', paddingBottom: '16px' }}>
@@ -150,7 +141,7 @@ const OrderModal = React.memo(({ order, onClose }) => {
           )}
         </div>
       </div>
-    </div>
+    </ModalWrapper>
   );
 });
 

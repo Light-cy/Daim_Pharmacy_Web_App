@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from './firebase';
+import { db } from '../services/firebase';
+import { useAuth } from '../context/AuthContext';
 
-function Login({ onLogin }) {
+function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -14,7 +16,6 @@ function Login({ onLogin }) {
     setLoading(true);
 
     try {
-      // Query the 'users' collection for matching email/password and admin role
       const usersRef = collection(db, 'users');
       const q = query(usersRef, where('email', '==', email), where('password', '==', password));
       const querySnapshot = await getDocs(q);
@@ -37,8 +38,7 @@ function Login({ onLogin }) {
       });
 
       if (isAdmin) {
-        localStorage.setItem('adminSession', JSON.stringify(userData));
-        onLogin();
+        login(userData);
       } else {
         setError('Access denied. You do not have admin privileges.');
       }

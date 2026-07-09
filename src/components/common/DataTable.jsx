@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { collection, onSnapshot, doc, deleteDoc, query, orderBy, limit, startAfter, endBefore, limitToLast } from 'firebase/firestore';
-import { db } from './firebase';
+import { useFirestoreRealtime } from '../../hooks/useFirestoreRealtime';
+import { deleteDocument } from '../../services/dbService';
 
 // Debounce Hook
 function useDebounce(value, delay) {
@@ -13,8 +13,7 @@ function useDebounce(value, delay) {
 }
 
 const DataTable = React.memo(({ title, collectionName, columns, renderActions, onAdd, onEdit, searchKeys }) => {
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading } = useFirestoreRealtime(collectionName);
   
   // Search & Pagination States
   const [searchQuery, setSearchQuery] = useState('');
@@ -26,24 +25,10 @@ const DataTable = React.memo(({ title, collectionName, columns, renderActions, o
 
   const [confirmDelete, setConfirmDelete] = useState(null);
 
-  useEffect(() => {
-    // We load all data for real-time search/analytics compatibility, but we memoize slicing it for the view.
-    // Real cursor pagination requires complex indexing for search/sort, so we use virtual/local pagination
-    // over the cached collection to maintain lightning speed and offline support without index limits.
-    const unsub = onSnapshot(collection(db, collectionName), (snapshot) => {
-      const items = [];
-      // Use a strict _docId field for operations because the internal 'id' field might be an integer (e.g. for Medicines)
-      snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data(), _docId: doc.id }));
-      setData(items);
-      setLoading(false);
-    });
-    return () => unsub();
-  }, [collectionName]);
-
   const handleDeleteConfirm = useCallback(async () => {
     if (confirmDelete) {
       try {
-        await deleteDoc(doc(db, collectionName, confirmDelete.toString()));
+        await deleteDocument(collectionName, confirmDelete);
         setConfirmDelete(null);
       } catch (err) {
         console.error("Delete error:", err);
